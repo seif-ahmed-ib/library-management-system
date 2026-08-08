@@ -1,0 +1,94 @@
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.models.book import Book
+from app.schemas.book import BookCreate, BookUpdate
+
+
+def create_book(db: Session, book_data: BookCreate) -> Book:
+    existing_book = db.scalar(
+        select(Book).where(Book.isbn == book_data.isbn)
+    )
+
+    if existing_book:
+        raise ValueError("A book with this ISBN already exists.")
+
+    book = Book(
+        title=book_data.title,
+        author=book_data.author,
+        isbn=book_data.isbn,
+        total_copies=book_data.total_copies,
+        available_copies=book_data.total_copies,
+    )
+
+    db.add(book)
+    db.commit()
+    db.refresh(book)
+
+    return book
+
+
+def get_book(db: Session, book_id: int) -> Book | None:
+    return db.get(Book, book_id)
+
+
+def get_book_by_isbn(db: Session, isbn: str) -> Book | None:
+    return db.scalar(
+        select(Book).where(Book.isbn == isbn)
+    )
+
+
+def list_books(
+    db: Session,
+    skip: int = 0,
+    limit: int = 100,
+) -> list[Book]:
+    statement = (
+        select(Book)
+        .order_by(Book.id)
+        .offset(skip)
+        .limit(limit)
+    )
+
+    return list(db.scalars(statement).all())
+
+
+def update_book(
+    db: Session,
+    book: Book,
+    book_data: BookUpdate,
+) -> Book:
+    update_data = book_data.model_dump(exclude_unset=True)
+
+    if "isbn" in update_data:
+        existing_book = get_book_by_isbn(db, update_data["isbn"])
+
+        if existing_book and existing_book.id != book.id:
+            raise ValueError("A book with this ISBN already exists.")
+
+    if "total_copies" in update_data:
+        borrowed_copies = book.total_copies - book.available_copies
+        new_total_copies = update_data["total_copies"]
+
+        if new_total_copies < borrowed_copies:
+            raise ValueError(
+                "Total copies cannot be less than borrowed copies."
+            )
+
+        book.available_copies = new_total_copies - borrowed_copies
+
+    for field, value in update_data.items():
+        setattr(book, field, value)
+
+    db.commit()
+    db.refresh(book)
+
+    return book
+
+
+def delete_book(db: Session, book: Book) -> None:
+    if book.available_copies != book.total_copies:
+        raise ValueError("A borrowed book cannot be deleted.")
+
+    db.delete(book)
+    db.commit()
