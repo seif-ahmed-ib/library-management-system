@@ -1,12 +1,17 @@
+import logging
 from datetime import datetime, timezone
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.cache.book_cache import book_cache
 from app.core.config import settings
 from app.models.book import Book
 from app.models.borrow_record import BorrowRecord
 from app.models.user import User
+
+
+logger = logging.getLogger("library.borrows")
 
 
 def borrow_book(
@@ -67,6 +72,16 @@ def borrow_book(
     db.commit()
     db.refresh(borrow_record)
 
+    book_cache.invalidate(book.id)
+    logger.info(
+        "borrow.created",
+        extra={
+            "borrow_record_id": borrow_record.id,
+            "user_id": user_id,
+            "book_id": book_id,
+        },
+    )
+
     return borrow_record
 
 
@@ -102,6 +117,16 @@ def return_book(
 
     db.commit()
     db.refresh(borrow_record)
+
+    book_cache.invalidate(book.id)
+    logger.info(
+        "borrow.returned",
+        extra={
+            "borrow_record_id": borrow_record.id,
+            "user_id": user_id,
+            "book_id": book.id,
+        },
+    )
 
     return borrow_record
 

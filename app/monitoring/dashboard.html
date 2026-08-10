@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Library API Monitoring</title>
+  <style>
+    :root { color-scheme: dark; font-family: Inter, system-ui, sans-serif; }
+    body { margin: 0; background: #0b1020; color: #e8edf8; }
+    main { width: min(1120px, 92vw); margin: 36px auto; }
+    header { display: flex; align-items: end; justify-content: space-between; gap: 20px; }
+    h1 { margin: 0; font-size: clamp(1.8rem, 4vw, 3rem); }
+    .muted { color: #91a0bb; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin: 24px 0; }
+    .card, section { background: #141b2f; border: 1px solid #26314e; border-radius: 14px; padding: 18px; }
+    .value { font-size: 2rem; font-weight: 750; margin-top: 8px; }
+    .healthy { color: #56e39f; }
+    .degraded { color: #ffbd59; }
+    section { margin: 14px 0; overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; padding: 10px; border-bottom: 1px solid #26314e; }
+    th { color: #91a0bb; font-weight: 600; }
+    code { color: #8fc7ff; }
+    .error { border-left: 3px solid #ff6b6b; padding: 9px 12px; margin: 9px 0; background: #1c2033; }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <div>
+        <p class="muted">Live operational dashboard</p>
+        <h1>Library API Monitoring</h1>
+      </div>
+      <p id="updated" class="muted">Loading...</p>
+    </header>
+
+    <div class="grid">
+      <div class="card"><span class="muted">System</span><div id="health" class="value">-</div></div>
+      <div class="card"><span class="muted">Requests</span><div id="requests" class="value">0</div></div>
+      <div class="card"><span class="muted">Average response</span><div id="response" class="value">0 ms</div></div>
+      <div class="card"><span class="muted">Error rate</span><div id="errors" class="value">0%</div></div>
+      <div class="card"><span class="muted">Cache hit rate</span><div id="cache" class="value">0%</div></div>
+    </div>
+
+    <section>
+      <h2>Request count by route</h2>
+      <table>
+        <thead><tr><th>Route</th><th>Requests</th></tr></thead>
+        <tbody id="routes"></tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>Recent warnings and errors</h2>
+      <div id="recent-errors" class="muted">No recent errors.</div>
+    </section>
+  </main>
+
+  <script>
+    const escapeHtml = (value) => String(value)
+      .replaceAll('&', '&amp;').replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;').replaceAll('"', '&quot;');
+
+    async function refresh() {
+      try {
+        const response = await fetch('/monitoring/data');
+        const data = await response.json();
+        const requestData = data.requests;
+        const cacheData = data.cache;
+        const health = data.health.status;
+
+        document.querySelector('#health').textContent = health;
+        document.querySelector('#health').className = `value ${health}`;
+        document.querySelector('#requests').textContent = requestData.total;
+        document.querySelector('#response').textContent = `${requestData.average_response_ms} ms`;
+        document.querySelector('#errors').textContent = `${requestData.error_rate_percent}%`;
+        document.querySelector('#cache').textContent = `${cacheData.hit_rate_percent}%`;
+        document.querySelector('#updated').textContent = `Updated ${new Date().toLocaleTimeString()}`;
+
+        document.querySelector('#routes').innerHTML = Object.entries(requestData.by_route)
+          .map(([route, count]) => `<tr><td><code>${escapeHtml(route)}</code></td><td>${count}</td></tr>`)
+          .join('') || '<tr><td colspan="2" class="muted">No requests yet.</td></tr>';
+
+        document.querySelector('#recent-errors').innerHTML = data.recent_errors
+          .map((item) => `<div class="error"><strong>${escapeHtml(item.level)}</strong> · ${escapeHtml(item.event)}<br><span class="muted">${escapeHtml(item.path || item.error || '')}</span></div>`)
+          .join('') || '<span class="muted">No recent errors.</span>';
+      } catch (error) {
+        document.querySelector('#updated').textContent = 'Dashboard data unavailable';
+      }
+    }
+
+    refresh();
+    setInterval(refresh, 3000);
+  </script>
+</body>
+</html>

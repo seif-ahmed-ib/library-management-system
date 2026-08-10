@@ -1,6 +1,6 @@
 from typing import Annotated, NoReturn
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.auth.dependencies import require_admin, require_member
@@ -86,8 +86,8 @@ def return_book(
 def read_personal_history(
     db: Annotated[Session, Depends(get_db)],
     member: Annotated[User, Depends(require_member)],
-    skip: int = 0,
-    limit: int = 100,
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=100, ge=1, le=100),
 ) -> list[BorrowRecord]:
     return get_user_borrow_history(
         db,
@@ -104,8 +104,8 @@ def read_personal_history(
 def read_all_borrow_records(
     db: Annotated[Session, Depends(get_db)],
     admin: Annotated[User, Depends(require_admin)],
-    skip: int = 0,
-    limit: int = 100,
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=100, ge=1, le=100),
 ) -> list[BorrowRecord]:
     return list_all_borrow_records(
         db,

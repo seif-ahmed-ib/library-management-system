@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Library Management System</title>
+  <style>
+    :root { font-family: Inter, system-ui, sans-serif; color: #172033; background: #f3f6fb; }
+    * { box-sizing: border-box; }
+    body { margin: 0; }
+    main { width: min(1120px, 92vw); margin: 38px auto; }
+    header { display: flex; justify-content: space-between; align-items: center; gap: 20px; }
+    h1 { margin: 0; font-size: clamp(2rem, 5vw, 3.5rem); }
+    .muted { color: #68758c; }
+    .panel { background: white; border: 1px solid #dce3ef; border-radius: 16px; padding: 20px; margin: 18px 0; box-shadow: 0 8px 30px #25324a0d; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; }
+    label { display: grid; gap: 6px; font-weight: 650; }
+    input, button { font: inherit; border-radius: 9px; padding: 10px 12px; border: 1px solid #c8d2e3; }
+    button { cursor: pointer; background: #3157d5; color: white; border: 0; font-weight: 700; }
+    button.secondary { background: #e8edfa; color: #243a7a; }
+    button.danger { background: #d64555; }
+    button:disabled { opacity: .55; cursor: not-allowed; }
+    .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; padding: 11px 8px; border-bottom: 1px solid #e6ebf3; }
+    th { color: #68758c; }
+    .hidden { display: none !important; }
+    #message { min-height: 24px; font-weight: 650; }
+    .success { color: #16834c; }
+    .error { color: #c42f43; }
+    @media (max-width: 720px) { table { min-width: 720px; } .table-wrap { overflow-x: auto; } }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <div><p class="muted">FastAPI course project</p><h1>Library Management System</h1></div>
+      <div class="actions">
+        <a href="/docs" target="_blank"><button class="secondary">API Docs</button></a>
+        <a href="/monitoring" target="_blank"><button class="secondary">Monitoring</button></a>
+        <button id="logout" class="danger hidden">Logout</button>
+      </div>
+    </header>
+
+    <p id="message"></p>
+
+    <section id="auth" class="panel grid">
+      <form id="login-form">
+        <h2>Login</h2>
+        <label>Email<input id="login-email" type="email" required></label><br>
+        <label>Password<input id="login-password" type="password" required minlength="8"></label><br>
+        <button>Login</button>
+      </form>
+      <form id="register-form">
+        <h2>Create member account</h2>
+        <label>Full name<input id="register-name" required minlength="2"></label><br>
+        <label>Email<input id="register-email" type="email" required></label><br>
+        <label>Password<input id="register-password" type="password" required minlength="8"></label><br>
+        <button>Register</button>
+      </form>
+    </section>
+
+    <section id="workspace" class="hidden">
+      <div class="panel">
+        <h2 id="welcome">Books</h2>
+        <p class="muted">Cached responses expose <code>X-Cache: MISS/HIT</code> in the browser network panel.</p>
+      </div>
+
+      <form id="book-form" class="panel hidden">
+        <h2>Add a book (Admin)</h2>
+        <div class="grid">
+          <label>Title<input id="book-title" required></label>
+          <label>Author<input id="book-author" required></label>
+          <label>ISBN<input id="book-isbn" required minlength="10"></label>
+          <label>Total copies<input id="book-copies" type="number" min="1" value="1" required></label>
+        </div><br>
+        <button>Add book</button>
+      </form>
+
+      <section class="panel table-wrap">
+        <div class="actions"><button id="refresh" class="secondary">Refresh books</button><button id="history-button" class="secondary hidden">My history</button></div>
+        <table><thead><tr><th>Title</th><th>Author</th><th>ISBN</th><th>Available</th><th>Actions</th></tr></thead><tbody id="books"></tbody></table>
+      </section>
+
+      <section id="history-panel" class="panel table-wrap hidden">
+        <h2>My borrowing history</h2>
+        <table><thead><tr><th>Record</th><th>Book</th><th>Borrowed</th><th>Returned</th><th>Action</th></tr></thead><tbody id="history"></tbody></table>
+      </section>
+    </section>
+  </main>
+
+  <script>
+    const api = '/api/v1';
+    let token = localStorage.getItem('library-token') || '';
+    let currentUser = null;
+    let booksById = new Map();
+
+    const element = (selector) => document.querySelector(selector);
+    const showMessage = (text, isError = false) => {
+      const target = element('#message');
+      target.textContent = text;
+      target.className = isError ? 'error' : 'success';
+    };
+    const authHeaders = () => token ? { Authorization: `Bearer ${token}` } : {};
+
+    async function request(path, options = {}) {
+      const response = await fetch(`${api}${path}`, {
+        ...options,
+        headers: { ...authHeaders(), ...(options.headers || {}) },
+      });
+      if (response.status === 204) return null;
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || 'Request failed');
+      return data;
+    }
+
+    async function initialize() {
+      if (!token) return renderSession(false);
+      try {
+        currentUser = await request('/auth/me');
+        renderSession(true);
+        await loadBooks();
+      } catch (error) {
+        logout();
+      }
+    }
+
+    function renderSession(isLoggedIn) {
+      element('#auth').classList.toggle('hidden', isLoggedIn);
+      element('#workspace').classList.toggle('hidden', !isLoggedIn);
+      element('#logout').classList.toggle('hidden', !isLoggedIn);
+      const isAdmin = currentUser?.role === 'admin';
+      element('#book-form').classList.toggle('hidden', !isAdmin);
+      element('#history-button').classList.toggle('hidden', isAdmin);
+      if (currentUser) element('#welcome').textContent = `Welcome, ${currentUser.full_name} (${currentUser.role})`;
+    }
+
+    async function loadBooks() {
+      try {
+        const books = await request('/books');
+        booksById = new Map(books.map((book) => [book.id, book]));
+        element('#books').innerHTML = books.map((book) => {
+          const action = currentUser.role === 'admin'
+            ? `<button class="secondary" onclick="editBook(${book.id})">Edit</button> <button class="danger" onclick="deleteBook(${book.id})">Delete</button>`
+            : `<button onclick="borrowBook(${book.id})" ${book.available_copies < 1 ? 'disabled' : ''}>Borrow</button>`;
+          return `<tr><td>${escapeHtml(book.title)}</td><td>${escapeHtml(book.author)}</td><td>${escapeHtml(book.isbn)}</td><td>${book.available_copies}/${book.total_copies}</td><td>${action}</td></tr>`;
+        }).join('') || '<tr><td colspan="5" class="muted">No books yet.</td></tr>';
+      } catch (error) { showMessage(error.message, true); }
+    }
+
+    async function borrowBook(bookId) {
+      try {
+        await request('/borrows', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ book_id: bookId }) });
+        showMessage('Book borrowed successfully.');
+        await loadBooks();
+      } catch (error) { showMessage(error.message, true); }
+    }
+
+    async function deleteBook(bookId) {
+      if (!confirm('Delete this book?')) return;
+      try { await request(`/books/${bookId}`, { method: 'DELETE' }); showMessage('Book deleted.'); await loadBooks(); }
+      catch (error) { showMessage(error.message, true); }
+    }
+
+    async function editBook(bookId) {
+      const book = booksById.get(bookId);
+      if (!book) return;
+      const title = prompt('Book title', book.title);
+      if (!title) return;
+      const totalCopies = Number(prompt('Total copies', book.total_copies));
+      if (!Number.isInteger(totalCopies) || totalCopies < 1) return showMessage('Copies must be a positive integer.', true);
+      try {
+        await request(`/books/${bookId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title, total_copies: totalCopies }) });
+        showMessage('Book updated.'); await loadBooks();
+      } catch (error) { showMessage(error.message, true); }
+    }
+
+    async function loadHistory() {
+      try {
+        const records = await request('/borrows/me/history');
+        element('#history-panel').classList.remove('hidden');
+        element('#history').innerHTML = records.map((record) => `<tr><td>${record.id}</td><td>${record.book_id}</td><td>${new Date(record.borrowed_at).toLocaleString()}</td><td>${record.returned_at ? new Date(record.returned_at).toLocaleString() : 'Active'}</td><td>${record.returned_at ? '' : `<button onclick="returnBook(${record.id})">Return</button>`}</td></tr>`).join('') || '<tr><td colspan="5">No records.</td></tr>';
+      } catch (error) { showMessage(error.message, true); }
+    }
+
+    async function returnBook(recordId) {
+      try { await request(`/borrows/${recordId}/return`, { method: 'POST' }); showMessage('Book returned.'); await Promise.all([loadBooks(), loadHistory()]); }
+      catch (error) { showMessage(error.message, true); }
+    }
+
+    function logout() {
+      token = ''; currentUser = null; localStorage.removeItem('library-token'); renderSession(false); showMessage('Logged out.');
+    }
+
+    const escapeHtml = (value) => String(value).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#039;');
+
+    element('#login-form').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      try {
+        const body = new URLSearchParams({ username: element('#login-email').value, password: element('#login-password').value });
+        const response = await fetch(`${api}/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body });
+        const data = await response.json(); if (!response.ok) throw new Error(data.detail);
+        token = data.access_token; localStorage.setItem('library-token', token); await initialize(); showMessage('Logged in successfully.');
+      } catch (error) { showMessage(error.message, true); }
+    });
+
+    element('#register-form').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      try {
+        await request('/auth/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ full_name: element('#register-name').value, email: element('#register-email').value, password: element('#register-password').value }) });
+        element('#login-email').value = element('#register-email').value; showMessage('Account created. You can log in now.');
+      } catch (error) { showMessage(error.message, true); }
+    });
+
+    element('#book-form').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      try {
+        await request('/books', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: element('#book-title').value, author: element('#book-author').value, isbn: element('#book-isbn').value, total_copies: Number(element('#book-copies').value) }) });
+        event.target.reset(); showMessage('Book added.'); await loadBooks();
+      } catch (error) { showMessage(error.message, true); }
+    });
+
+    element('#refresh').addEventListener('click', loadBooks);
+    element('#history-button').addEventListener('click', loadHistory);
+    element('#logout').addEventListener('click', logout);
+    initialize();
+  </script>
+</body>
+</html>

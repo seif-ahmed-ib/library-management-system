@@ -1,9 +1,10 @@
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import (
     APIRouter,
     Depends,
     HTTPException,
+    Query,
     Response,
     status,
 )
@@ -13,6 +14,8 @@ from app.auth.dependencies import (
     get_current_active_user,
     require_admin,
 )
+from app.cache.book_cache import book_cache
+from app.cache.redis_cache import CacheStatus
 from app.db.dependencies import get_db
 from app.models.book import Book
 from app.models.user import User
@@ -49,13 +52,33 @@ router = APIRouter(
     response_model=list[BookRead],
 )
 def read_books(
+    response: Response,
     db: Annotated[Session, Depends(get_db)],
     current_user: Annotated[
         User,
         Depends(get_current_active_user),
     ],
-) -> list[Book]:
-    return list_books_service(db)
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=100, ge=1, le=100),
+) -> list[Book] | list[dict[str, Any]]:
+    lookup = book_cache.get_list(skip, limit)
+    response.headers["X-Cache"] = lookup.status.value
+
+    if lookup.status == CacheStatus.HIT:
+        return lookup.value
+
+    books = list_books_service(
+        db,
+        skip=skip,
+        limit=limit,
+    )
+
+    book_cache.set_list(
+        skip,
+        limit,
+        [BookRead.model_validate(book).model_dump(mode="json") for book in books],
+    )
+    return books
 
 
 @router.get(
@@ -64,20 +87,33 @@ def read_books(
 )
 def read_book(
     book_id: int,
+    response: Response,
     db: Annotated[Session, Depends(get_db)],
     current_user: Annotated[
         User,
         Depends(get_current_active_user),
     ],
-) -> Book:
+) -> Book | dict[str, Any]:
+    lookup = book_cache.get_item(book_id)
+    response.headers["X-Cache"] = lookup.status.value
+
+    if lookup.status == CacheStatus.HIT:
+        return lookup.value
+
     try:
-        return get_book_service(db, book_id)
+        book = get_book_service(db, book_id)
 
     except LookupError as error:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(error),
         ) from error
+
+    book_cache.set_item(
+        book_id,
+        BookRead.model_validate(book).model_dump(mode="json"),
+    )
+    return book
 
 
 @router.post(
@@ -163,6 +199,4 @@ def delete_book(
             detail=str(error),
         ) from error
 
-    return Response(
-        status_code=status.HTTP_204_NO_CONTENT
-    )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

@@ -39,11 +39,7 @@ def register_and_login(
 
     if make_admin:
         with TestingSessionLocal() as db:
-            user = db.scalar(
-                select(User).where(
-                    User.email == user_data["email"]
-                )
-            )
+            user = db.scalar(select(User).where(User.email == user_data["email"]))
 
             assert user is not None
 
@@ -62,9 +58,7 @@ def register_and_login(
 
     token = login_response.json()["access_token"]
 
-    return {
-        "Authorization": f"Bearer {token}"
-    }
+    return {"Authorization": f"Bearer {token}"}
 
 
 def create_admin_headers(
@@ -129,9 +123,7 @@ def test_member_cannot_create_book(
     response = create_book(client, headers)
 
     assert response.status_code == 403
-    assert response.json()["detail"] == (
-        "Admin privileges required."
-    )
+    assert response.json()["detail"] == ("Admin privileges required.")
 
 
 def test_create_duplicate_isbn(
@@ -143,9 +135,7 @@ def test_create_duplicate_isbn(
     response = create_book(client, headers)
 
     assert response.status_code == 409
-    assert response.json()["detail"] == (
-        "A book with this ISBN already exists."
-    )
+    assert response.json()["detail"] == ("A book with this ISBN already exists.")
 
 
 def test_create_invalid_book(
@@ -179,9 +169,7 @@ def test_list_books(client: TestClient):
 
     assert response.status_code == 200
     assert len(response.json()) == 1
-    assert response.json()[0]["isbn"] == (
-        BOOK_DATA["isbn"]
-    )
+    assert response.json()[0]["isbn"] == (BOOK_DATA["isbn"])
 
 
 def test_get_book_by_id(client: TestClient):
@@ -198,9 +186,7 @@ def test_get_book_by_id(client: TestClient):
     )
 
     assert response.status_code == 200
-    assert response.json()["id"] == (
-        created_book["id"]
-    )
+    assert response.json()["id"] == (created_book["id"])
 
 
 def test_get_missing_book(client: TestClient):
@@ -212,9 +198,7 @@ def test_get_missing_book(client: TestClient):
     )
 
     assert response.status_code == 404
-    assert response.json()["detail"] == (
-        "Book not found."
-    )
+    assert response.json()["detail"] == ("Book not found.")
 
 
 def test_update_book_success(
@@ -293,9 +277,7 @@ def test_update_to_duplicate_isbn(
     )
 
     assert response.status_code == 409
-    assert response.json()["detail"] == (
-        "A book with this ISBN already exists."
-    )
+    assert response.json()["detail"] == ("A book with this ISBN already exists.")
 
 
 def test_delete_book_success(
@@ -335,6 +317,4 @@ def test_delete_missing_book(
     )
 
     assert response.status_code == 404
-    assert response.json()["detail"] == (
-        "Book not found."
-    )
+    assert response.json()["detail"] == ("Book not found.")

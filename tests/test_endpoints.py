@@ -38,9 +38,7 @@ def test_health_endpoint(client: TestClient):
     response = client.get("/")
 
     assert response.status_code == 200
-    assert response.json() == {
-        "message": "Library Management System API is running"
-    }
+    assert response.json() == {"message": "Library Management System API is running"}
 
 
 def test_register_user_success(client: TestClient):
@@ -61,9 +59,7 @@ def test_register_duplicate_email(client: TestClient):
     response = register_user(client)
 
     assert response.status_code == 409
-    assert response.json()["detail"] == (
-        "A user with this email already exists."
-    )
+    assert response.json()["detail"] == ("A user with this email already exists.")
 
 
 def test_register_invalid_data(client: TestClient):
@@ -98,9 +94,7 @@ def test_login_wrong_password(client: TestClient):
     )
 
     assert response.status_code == 401
-    assert response.json() == {
-        "detail": "Incorrect email or password."
-    }
+    assert response.json() == {"detail": "Incorrect email or password."}
 
 
 def test_me_with_valid_token(client: TestClient):
@@ -129,6 +123,4 @@ def test_me_with_invalid_token(client: TestClient):
     )
 
     assert response.status_code == 401
-    assert response.json() == {
-        "detail": "Could not validate credentials."
-    }
+    assert response.json() == {"detail": "Could not validate credentials."}

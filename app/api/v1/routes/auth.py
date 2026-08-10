@@ -1,3 +1,4 @@
+import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -17,6 +18,7 @@ router = APIRouter(
     prefix="/auth",
     tags=["Authentication"],
 )
+logger = logging.getLogger("library.auth")
 
 
 @router.post(
@@ -29,9 +31,18 @@ def register(
     db: Annotated[Session, Depends(get_db)],
 ) -> User:
     try:
-        return create_user(db, user_data)
+        user = create_user(db, user_data)
+        logger.info(
+            "auth.registration_succeeded",
+            extra={"user_id": user.id},
+        )
+        return user
 
     except ValueError as error:
+        logger.warning(
+            "auth.registration_failed",
+            extra={"reason": str(error)},
+        )
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=str(error),
@@ -49,6 +60,7 @@ def login(
     ],
     db: Annotated[Session, Depends(get_db)],
 ) -> Token:
+    logger.info("auth.login_attempt")
     user = authenticate_user(
         db,
         form_data.username,
@@ -56,6 +68,7 @@ def login(
     )
 
     if user is None:
+        logger.warning("auth.login_failed")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password.",
@@ -64,6 +77,11 @@ def login(
 
     access_token = create_access_token(
         subject=str(user.id),
+    )
+
+    logger.info(
+        "auth.login_succeeded",
+        extra={"user_id": user.id},
     )
 
     return Token(access_token=access_token)

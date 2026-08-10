@@ -1,3 +1,5 @@
+import logging
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -6,15 +8,16 @@ from app.models.user import User
 from app.schemas.user import UserCreate
 
 
+logger = logging.getLogger("library.users")
+
+
 def get_user_by_email(
     db: Session,
     email: str,
 ) -> User | None:
     normalized_email = email.strip().lower()
 
-    return db.scalar(
-        select(User).where(User.email == normalized_email)
-    )
+    return db.scalar(select(User).where(User.email == normalized_email))
 
 
 def create_user(
@@ -41,6 +44,11 @@ def create_user(
     db.commit()
     db.refresh(user)
 
+    logger.info(
+        "user.created",
+        extra={"user_id": user.id},
+    )
+
     return user
 
 
@@ -52,12 +60,21 @@ def authenticate_user(
     user = get_user_by_email(db, email)
 
     if user is None:
+        logger.warning("user.authentication_unknown_email")
         return None
 
     if not user.is_active:
+        logger.warning(
+            "user.authentication_inactive",
+            extra={"user_id": user.id},
+        )
         return None
 
     if not verify_password(password, user.hashed_password):
+        logger.warning(
+            "user.authentication_bad_password",
+            extra={"user_id": user.id},
+        )
         return None
 
     return user

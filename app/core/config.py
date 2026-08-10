@@ -7,6 +7,12 @@ class Settings(BaseSettings):
     database_url: str = "sqlite:///./library.db"
     max_borrowed_books: int = 3
 
+    redis_url: str = "redis://localhost:6379/0"
+    cache_ttl_seconds: int = 120
+
+    log_level: str = "INFO"
+    log_file: str = "logs/library-api.log"
+
     secret_key: str
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 30

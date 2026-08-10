@@ -1,14 +1,18 @@
+import logging
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.cache.book_cache import book_cache
 from app.models.book import Book
 from app.schemas.book import BookCreate, BookUpdate
 
 
+logger = logging.getLogger("library.books")
+
+
 def create_book(db: Session, book_data: BookCreate) -> Book:
-    existing_book = db.scalar(
-        select(Book).where(Book.isbn == book_data.isbn)
-    )
+    existing_book = db.scalar(select(Book).where(Book.isbn == book_data.isbn))
 
     if existing_book:
         raise ValueError("A book with this ISBN already exists.")
@@ -25,6 +29,12 @@ def create_book(db: Session, book_data: BookCreate) -> Book:
     db.commit()
     db.refresh(book)
 
+    book_cache.invalidate()
+    logger.info(
+        "book.created",
+        extra={"book_id": book.id, "isbn": book.isbn},
+    )
+
     return book
 
 
@@ -38,9 +48,7 @@ def get_book(db: Session, book_id: int) -> Book:
 
 
 def get_book_by_isbn(db: Session, isbn: str) -> Book | None:
-    return db.scalar(
-        select(Book).where(Book.isbn == isbn)
-    )
+    return db.scalar(select(Book).where(Book.isbn == isbn))
 
 
 def list_books(
@@ -48,12 +56,7 @@ def list_books(
     skip: int = 0,
     limit: int = 100,
 ) -> list[Book]:
-    statement = (
-        select(Book)
-        .order_by(Book.id)
-        .offset(skip)
-        .limit(limit)
-    )
+    statement = select(Book).order_by(Book.id).offset(skip).limit(limit)
 
     return list(db.scalars(statement).all())
 
@@ -77,9 +80,7 @@ def update_book(
         new_total_copies = update_data["total_copies"]
 
         if new_total_copies < borrowed_copies:
-            raise ValueError(
-                "Total copies cannot be less than borrowed copies."
-            )
+            raise ValueError("Total copies cannot be less than borrowed copies.")
 
         book.available_copies = new_total_copies - borrowed_copies
 
@@ -88,6 +89,12 @@ def update_book(
 
     db.commit()
     db.refresh(book)
+
+    book_cache.invalidate(book.id)
+    logger.info(
+        "book.updated",
+        extra={"book_id": book.id, "fields": sorted(update_data)},
+    )
 
     return book
 
@@ -98,5 +105,12 @@ def delete_book(db: Session, book_id: int) -> None:
     if book.available_copies != book.total_copies:
         raise ValueError("A borrowed book cannot be deleted.")
 
+    isbn = book.isbn
     db.delete(book)
     db.commit()
+
+    book_cache.invalidate(book_id)
+    logger.info(
+        "book.deleted",
+        extra={"book_id": book_id, "isbn": isbn},
+    )
