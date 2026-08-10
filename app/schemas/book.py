@@ -1,12 +1,49 @@
 from datetime import datetime
+from typing import Annotated, Self
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    StringConstraints,
+    model_validator,
+)
+
+
+BookTitle = Annotated[
+    str,
+    StringConstraints(
+        strip_whitespace=True,
+        min_length=1,
+        max_length=200,
+    ),
+]
+
+BookAuthor = Annotated[
+    str,
+    StringConstraints(
+        strip_whitespace=True,
+        min_length=1,
+        max_length=100,
+    ),
+]
+
+BookISBN = Annotated[
+    str,
+    StringConstraints(
+        strip_whitespace=True,
+        min_length=10,
+        max_length=20,
+    ),
+]
 
 
 class BookBase(BaseModel):
-    title: str = Field(min_length=1, max_length=200)
-    author: str = Field(min_length=1, max_length=100)
-    isbn: str = Field(min_length=10, max_length=20)
+    model_config = ConfigDict(extra="forbid")
+
+    title: BookTitle
+    author: BookAuthor
+    isbn: BookISBN
 
 
 class BookCreate(BookBase):
@@ -14,14 +51,34 @@ class BookCreate(BookBase):
 
 
 class BookUpdate(BaseModel):
-    title: str | None = Field(default=None, min_length=1, max_length=200)
-    author: str | None = Field(default=None, min_length=1, max_length=100)
-    isbn: str | None = Field(default=None, min_length=10, max_length=20)
+    model_config = ConfigDict(extra="forbid")
+
+    title: BookTitle | None = None
+    author: BookAuthor | None = None
+    isbn: BookISBN | None = None
     total_copies: int | None = Field(default=None, ge=1)
+
+    @model_validator(mode="after")
+    def validate_update_data(self) -> Self:
+        if not self.model_fields_set:
+            raise ValueError(
+                "At least one field must be provided."
+            )
+
+        for field_name in self.model_fields_set:
+            if getattr(self, field_name) is None:
+                raise ValueError(
+                    f"{field_name} cannot be null."
+                )
+
+        return self
 
 
 class BookRead(BookBase):
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(
+        from_attributes=True,
+        extra="forbid",
+    )
 
     id: int
     total_copies: int

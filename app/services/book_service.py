@@ -28,8 +28,13 @@ def create_book(db: Session, book_data: BookCreate) -> Book:
     return book
 
 
-def get_book(db: Session, book_id: int) -> Book | None:
-    return db.get(Book, book_id)
+def get_book(db: Session, book_id: int) -> Book:
+    book = db.get(Book, book_id)
+
+    if book is None:
+        raise LookupError("Book not found.")
+
+    return book
 
 
 def get_book_by_isbn(db: Session, isbn: str) -> Book | None:
@@ -55,9 +60,10 @@ def list_books(
 
 def update_book(
     db: Session,
-    book: Book,
+    book_id: int,
     book_data: BookUpdate,
 ) -> Book:
+    book = get_book(db, book_id)
     update_data = book_data.model_dump(exclude_unset=True)
 
     if "isbn" in update_data:
@@ -86,7 +92,9 @@ def update_book(
     return book
 
 
-def delete_book(db: Session, book: Book) -> None:
+def delete_book(db: Session, book_id: int) -> None:
+    book = get_book(db, book_id)
+
     if book.available_copies != book.total_copies:
         raise ValueError("A borrowed book cannot be deleted.")
 
