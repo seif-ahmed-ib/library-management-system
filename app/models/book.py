@@ -1,9 +1,15 @@
+from __future__ import annotations
+
 from datetime import datetime, timezone
+from typing import TYPE_CHECKING
 
 from sqlalchemy import CheckConstraint, DateTime, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+
+if TYPE_CHECKING:
+    from app.models.borrow_record import BorrowRecord
 
 
 class Book(Base):
@@ -39,6 +45,6 @@ class Book(Base):
         onupdate=lambda: datetime.now(timezone.utc),
     )
 
-    borrow_records: Mapped[list["BorrowRecord"]] = relationship(
+    borrow_records: Mapped[list[BorrowRecord]] = relationship(
         back_populates="book",
     )

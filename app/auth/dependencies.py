@@ -81,3 +81,18 @@ def require_admin(
         )
 
     return current_user
+
+
+def require_member(
+    current_user: Annotated[
+        User,
+        Depends(get_current_active_user),
+    ],
+) -> User:
+    if current_user.role != UserRole.MEMBER:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Member privileges required.",
+        )
+
+    return current_user

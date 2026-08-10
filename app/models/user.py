@@ -1,10 +1,16 @@
+from __future__ import annotations
+
 from datetime import datetime, timezone
 from enum import Enum
+from typing import TYPE_CHECKING
 
 from sqlalchemy import Boolean, DateTime, Enum as SqlEnum, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+
+if TYPE_CHECKING:
+    from app.models.borrow_record import BorrowRecord
 
 
 class UserRole(str, Enum):
@@ -33,6 +39,6 @@ class User(Base):
         default=lambda: datetime.now(timezone.utc),
     )
 
-    borrow_records: Mapped[list["BorrowRecord"]] = relationship(
+    borrow_records: Mapped[list[BorrowRecord]] = relationship(
         back_populates="user",
     )

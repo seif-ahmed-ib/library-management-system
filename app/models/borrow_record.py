@@ -1,9 +1,16 @@
+from __future__ import annotations
+
 from datetime import datetime, timezone
+from typing import TYPE_CHECKING
 
 from sqlalchemy import DateTime, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+
+if TYPE_CHECKING:
+    from app.models.book import Book
+    from app.models.user import User
 
 
 class BorrowRecord(Base):
@@ -28,9 +35,9 @@ class BorrowRecord(Base):
         default=None,
     )
 
-    user: Mapped["User"] = relationship(
+    user: Mapped[User] = relationship(
         back_populates="borrow_records",
     )
-    book: Mapped["Book"] = relationship(
+    book: Mapped[Book] = relationship(
         back_populates="borrow_records",
     )

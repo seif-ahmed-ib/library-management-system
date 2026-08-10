@@ -14,18 +14,18 @@ def borrow_book(
     user_id: int,
     book_id: int,
 ) -> BorrowRecord:
-    user = db.get(User, user_id)
+    user = db.scalar(select(User).where(User.id == user_id).with_for_update())
 
-    if not user:
-        raise ValueError("User not found.")
+    if user is None:
+        raise LookupError("User not found.")
 
     if not user.is_active:
-        raise ValueError("Inactive users cannot borrow books.")
+        raise PermissionError("Inactive users cannot borrow books.")
 
-    book = db.get(Book, book_id)
+    book = db.scalar(select(Book).where(Book.id == book_id).with_for_update())
 
-    if not book:
-        raise ValueError("Book not found.")
+    if book is None:
+        raise LookupError("Book not found.")
 
     if book.available_copies <= 0:
         raise ValueError("No available copies of this book.")
@@ -38,7 +38,7 @@ def borrow_book(
         )
     )
 
-    if existing_borrow:
+    if existing_borrow is not None:
         raise ValueError("You have already borrowed this book.")
 
     active_borrow_count = db.scalar(
@@ -48,10 +48,12 @@ def borrow_book(
         )
     )
 
-    if active_borrow_count >= settings.max_borrowed_books:
+    if (
+        active_borrow_count is not None
+        and active_borrow_count >= settings.max_borrowed_books
+    ):
         raise ValueError(
-            f"You cannot borrow more than "
-            f"{settings.max_borrowed_books} books."
+            f"You cannot borrow more than {settings.max_borrowed_books} books."
         )
 
     borrow_record = BorrowRecord(
@@ -73,21 +75,27 @@ def return_book(
     user_id: int,
     borrow_record_id: int,
 ) -> BorrowRecord:
-    borrow_record = db.get(BorrowRecord, borrow_record_id)
+    borrow_record = db.scalar(
+        select(BorrowRecord)
+        .where(BorrowRecord.id == borrow_record_id)
+        .with_for_update()
+    )
 
-    if not borrow_record:
-        raise ValueError("Borrow record not found.")
+    if borrow_record is None:
+        raise LookupError("Borrow record not found.")
 
     if borrow_record.user_id != user_id:
-        raise ValueError("You cannot return another user's book.")
+        raise PermissionError("You cannot return another user's book.")
 
     if borrow_record.returned_at is not None:
         raise ValueError("This book has already been returned.")
 
-    book = db.get(Book, borrow_record.book_id)
+    book = db.scalar(
+        select(Book).where(Book.id == borrow_record.book_id).with_for_update()
+    )
 
-    if not book:
-        raise ValueError("Book not found.")
+    if book is None:
+        raise LookupError("Book not found.")
 
     borrow_record.returned_at = datetime.now(timezone.utc)
     book.available_copies += 1
