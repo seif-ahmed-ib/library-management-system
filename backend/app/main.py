@@ -2,6 +2,7 @@ import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.api.v1.routes.auth import router as auth_router
@@ -12,7 +13,7 @@ from app.core.config import settings
 from app.core.logging_config import configure_logging
 from app.db.base import Base
 from app.db.session import engine
-from app.frontend.router import router as frontend_router
+from app.frontend.router import FRONTEND_DIR, router as frontend_router
 from app.middleware.request_logging import RequestLoggingMiddleware
 
 
@@ -63,6 +64,11 @@ app.include_router(
 
 app.include_router(monitoring_router)
 app.include_router(frontend_router)
+app.mount(
+    "/app/assets",
+    StaticFiles(directory=FRONTEND_DIR / "assets"),
+    name="frontend-assets",
+)
 
 
 @app.get("/", tags=["Health"])

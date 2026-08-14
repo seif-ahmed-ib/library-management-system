@@ -119,4 +119,4 @@ Health checks ensure the app waits until PostgreSQL and Redis are ready. Environ
 7. Show personal history, return the book, and show availability restored.
 8. Show that the admin can see all borrowing records.
 9. Open the monitoring dashboard and the JSON log file.
-10. Run `python -m pytest -q` and show every test passing.
+10. From the `backend` folder, run `python -m pytest -q` and show every test passing.

@@ -210,3 +210,11 @@ def test_frontend_page_is_available(client: TestClient) -> None:
     assert response.status_code == 200
     assert "Library Management System" in response.text
     assert "Create member account" in response.text
+
+    stylesheet_response = client.get("/app/assets/css/styles.css")
+    script_response = client.get("/app/assets/js/app.js")
+
+    assert stylesheet_response.status_code == 200
+    assert script_response.status_code == 200
+    assert "text/css" in stylesheet_response.headers["content-type"]
+    assert "javascript" in script_response.headers["content-type"]

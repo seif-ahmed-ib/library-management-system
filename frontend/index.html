@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Modern library operations dashboard powered by FastAPI.">
+  <title>Library Management System</title>
+  <link rel="stylesheet" href="/app/assets/css/styles.css">
+</head>
+<body>
+  <div id="toast-region" class="toast-region" aria-live="polite" aria-atomic="true"></div>
+
+  <section id="auth-screen" class="auth-screen">
+    <div class="auth-story">
+      <div class="brand brand-light">
+        <span class="brand-mark">LMS</span>
+        <span><strong>Library System</strong><small>FastAPI course project</small></span>
+      </div>
+      <div class="story-copy">
+        <span class="eyebrow">DSC 306 Project</span>
+        <h1>Library Management System</h1>
+        <p>A web application for managing books, members, borrowing, and returns.</p>
+      </div>
+      <div class="story-metrics" aria-label="Project features">
+        <div><strong>Books</strong><span>Full CRUD</span></div>
+        <div><strong>Users</strong><span>Admin &amp; member</span></div>
+        <div><strong>Borrowing</strong><span>Borrow &amp; return</span></div>
+      </div>
+    </div>
+
+    <div class="auth-area">
+      <div class="auth-card">
+        <div class="auth-heading">
+          <span class="eyebrow">Library Management System</span>
+          <h2 id="auth-title">Sign in</h2>
+          <p id="auth-subtitle">Enter your email and password.</p>
+        </div>
+
+        <div class="auth-tabs" role="tablist" aria-label="Account access">
+          <button class="auth-tab active" type="button" data-auth-tab="login" role="tab" aria-selected="true">Sign in</button>
+          <button class="auth-tab" type="button" data-auth-tab="register" role="tab" aria-selected="false">Create account</button>
+        </div>
+
+        <form id="login-form" class="auth-form">
+          <label>Email address
+            <input id="login-email" type="email" autocomplete="username" placeholder="admin@library.com" required>
+          </label>
+          <label>Password
+            <span class="password-field"><input id="login-password" type="password" autocomplete="current-password" placeholder="Enter your password" minlength="8" required><button class="password-toggle" type="button" data-toggle-password="login-password" aria-label="Show password">Show</button></span>
+          </label>
+          <button class="button button-primary button-block" type="submit">Sign in</button>
+          <p class="form-note">Admin and member accounts have different permissions.</p>
+        </form>
+
+        <form id="register-form" class="auth-form hidden">
+          <label>Full name
+            <input id="register-name" autocomplete="name" placeholder="Your full name" minlength="2" required>
+          </label>
+          <label>Email address
+            <input id="register-email" type="email" autocomplete="email" placeholder="member@example.com" required>
+          </label>
+          <label>Password
+            <span class="password-field"><input id="register-password" type="password" autocomplete="new-password" placeholder="At least 8 characters" minlength="8" required><button class="password-toggle" type="button" data-toggle-password="register-password" aria-label="Show password">Show</button></span>
+          </label>
+          <button class="button button-primary button-block" type="submit">Create member account</button>
+          <p class="form-note">New accounts are registered as members.</p>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <div id="app-shell" class="app-shell hidden">
+    <aside id="sidebar" class="sidebar">
+      <div class="brand">
+        <span class="brand-mark">LMS</span>
+        <span><strong>Library System</strong><small>Management panel</small></span>
+      </div>
+
+      <nav class="main-nav" aria-label="Main navigation">
+        <span class="nav-label">Main Menu</span>
+        <button class="nav-item active" type="button" data-view="overview"><span class="nav-icon">⌂</span><span>Dashboard</span></button>
+        <button class="nav-item" type="button" data-view="books"><span class="nav-icon">▤</span><span>Books</span></button>
+        <button class="nav-item" type="button" data-view="history"><span class="nav-icon">⇄</span><span id="history-nav-label">Borrowing</span></button>
+        <span class="nav-label">System</span>
+        <a class="nav-item" href="/docs" target="_blank" rel="noreferrer"><span class="nav-icon">{ }</span><span>Swagger API</span></a>
+        <a class="nav-item" href="/monitoring" target="_blank" rel="noreferrer"><span class="nav-icon">●</span><span>Monitoring</span></a>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="system-status"><span class="status-dot"></span><span><strong>System online</strong><small>FastAPI connected</small></span></div>
+        <button id="logout-button" class="logout-button" type="button">Sign out</button>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <header class="topbar">
+        <button id="menu-button" class="icon-button menu-button" type="button" aria-label="Open navigation">Menu</button>
+        <div class="global-search">
+          <label class="sr-only" for="global-search-input">Search books</label>
+          <span aria-hidden="true">Search</span>
+          <input id="global-search-input" type="search" placeholder="Search by title, author, or ISBN">
+          <kbd>Ctrl K</kbd>
+        </div>
+        <div class="user-menu">
+          <span id="user-avatar" class="avatar">SA</span>
+          <span><strong id="user-name">Seif Ahmed</strong><small id="user-role">Administrator</small></span>
+        </div>
+      </header>
+
+      <div class="content-wrap">
+        <section id="overview-view" class="view-section">
+          <div class="page-heading">
+            <div><span class="eyebrow">Dashboard</span><h1 id="greeting">Dashboard</h1><p>Books and borrowing summary.</p></div>
+            <button class="button button-primary admin-only" type="button" data-open-book-modal>Add new book</button>
+          </div>
+
+          <div class="stats-grid">
+            <article class="stat-card stat-featured"><div class="stat-icon">▤</div><span>Books</span><strong id="stat-titles">0</strong><small>Titles in the catalog</small></article>
+            <article class="stat-card"><div class="stat-icon">#</div><span>Total Copies</span><strong id="stat-copies">0</strong><small>All book copies</small></article>
+            <article class="stat-card"><div class="stat-icon">✓</div><span>Available</span><strong id="stat-available">0</strong><small id="availability-rate">0% available</small></article>
+            <article class="stat-card"><div class="stat-icon">⇄</div><span>Borrowed</span><strong id="stat-loans">0</strong><small>Copies currently borrowed</small></article>
+          </div>
+
+          <div class="overview-grid">
+            <article class="panel collection-panel">
+              <div class="panel-heading"><div><span class="eyebrow">Books</span><h2>Availability</h2></div><span id="cache-badge" class="badge badge-neutral">Cache —</span></div>
+              <div class="availability-visual"><div class="donut" id="availability-donut"><span><strong id="donut-rate">0%</strong><small>available</small></span></div><div class="availability-copy"><h3 id="availability-title">Loading catalog...</h3><p id="availability-description">Availability updates automatically after every borrow or return.</p><button class="text-button" type="button" data-view="books">View full catalog →</button></div></div>
+            </article>
+
+            <article class="panel quick-panel">
+              <div class="panel-heading"><div><span class="eyebrow">Links</span><h2>Quick Access</h2></div></div>
+              <a class="quick-link" href="/docs" target="_blank" rel="noreferrer"><span class="quick-icon">{ }</span><span><strong>Swagger API</strong><small>Open API documentation</small></span><span>↗</span></a>
+              <a class="quick-link" href="/monitoring" target="_blank" rel="noreferrer"><span class="quick-icon">●</span><span><strong>Monitoring</strong><small>View requests and system health</small></span><span>↗</span></a>
+              <button class="quick-link" type="button" data-view="history"><span class="quick-icon">⇄</span><span><strong>Borrowing Records</strong><small>Open borrowing history</small></span><span>→</span></button>
+            </article>
+          </div>
+
+          <article class="panel">
+            <div class="panel-heading"><div><span class="eyebrow">Books</span><h2>Recently Updated</h2></div><button class="text-button" type="button" data-view="books">View All →</button></div>
+            <div class="table-wrap"><table><thead><tr><th>Book</th><th>ISBN</th><th>Availability</th><th>Status</th></tr></thead><tbody id="overview-books-body"></tbody></table></div>
+          </article>
+        </section>
+
+        <section id="books-view" class="view-section hidden">
+          <div class="page-heading">
+            <div><span class="eyebrow">Books</span><h1>Book Management</h1><p>Add, update, delete, and search for books.</p></div>
+            <button class="button button-primary admin-only" type="button" data-open-book-modal>Add new book</button>
+          </div>
+          <article class="panel">
+            <div class="toolbar">
+              <label class="filter-search"><span>Search</span><input id="catalog-search" type="search" placeholder="Title, author, or ISBN"></label>
+              <label class="select-field"><span>Availability</span><select id="availability-filter"><option value="all">All books</option><option value="available">Available</option><option value="unavailable">Unavailable</option></select></label>
+              <button id="refresh-books" class="button button-secondary" type="button">Refresh</button>
+            </div>
+            <div class="table-wrap"><table><thead><tr><th>Book</th><th>ISBN</th><th>Copies</th><th>Status</th><th class="table-actions">Actions</th></tr></thead><tbody id="catalog-body"></tbody></table></div>
+            <div class="table-footer"><span id="catalog-count">0 books</span><span>Live data from PostgreSQL</span></div>
+          </article>
+        </section>
+
+        <section id="history-view" class="view-section hidden">
+          <div class="page-heading">
+            <div><span class="eyebrow">Borrowing</span><h1 id="history-title">Borrowing Records</h1><p id="history-subtitle">View active and returned records.</p></div>
+            <button id="refresh-history" class="button button-secondary" type="button">Refresh activity</button>
+          </div>
+          <div class="history-summary">
+            <article><span>All records</span><strong id="history-total">0</strong></article>
+            <article><span>Active</span><strong id="history-active">0</strong></article>
+            <article><span>Returned</span><strong id="history-returned">0</strong></article>
+          </div>
+          <article class="panel">
+            <div class="table-wrap"><table><thead><tr><th>Book</th><th class="admin-only-cell">Member</th><th>Borrowed</th><th>Returned</th><th>Status</th><th class="table-actions member-only-cell">Action</th></tr></thead><tbody id="history-body"></tbody></table></div>
+          </article>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <div id="book-modal" class="modal-backdrop hidden" role="presentation">
+    <section class="modal" role="dialog" aria-modal="true" aria-labelledby="book-modal-title">
+      <div class="modal-heading"><div><span class="eyebrow">Book Details</span><h2 id="book-modal-title">Add Book</h2></div><button class="modal-close" type="button" data-close-modal aria-label="Close">×</button></div>
+      <form id="book-form" class="modal-form">
+        <input id="book-id" type="hidden">
+        <label>Book title<input id="book-title" placeholder="e.g. Clean Code" maxlength="200" required></label>
+        <div class="form-grid"><label>Author<input id="book-author" placeholder="Author name" maxlength="100" required></label><label>ISBN<input id="book-isbn" placeholder="9780132350884" minlength="10" maxlength="20" required></label></div>
+        <label>Total copies<input id="book-copies" type="number" min="1" value="1" required></label>
+        <div class="modal-actions"><button class="button button-ghost" type="button" data-close-modal>Cancel</button><button id="save-book-button" class="button button-primary" type="submit">Save book</button></div>
+      </form>
+    </section>
+  </div>
+
+  <div id="confirm-modal" class="modal-backdrop hidden" role="presentation">
+    <section class="modal modal-small" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+      <div class="confirm-icon">!</div><h2 id="confirm-title">Delete this book?</h2><p id="confirm-copy">This action cannot be undone.</p>
+      <div class="modal-actions"><button class="button button-ghost" type="button" data-close-confirm>Cancel</button><button id="confirm-action" class="button button-danger" type="button">Delete book</button></div>
+    </section>
+  </div>
+
+  <div id="loading-overlay" class="loading-overlay hidden" aria-label="Loading"><span></span></div>
+  <script type="module" src="/app/assets/js/app.js"></script>
+</body>
+</html>
