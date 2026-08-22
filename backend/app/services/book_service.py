@@ -1,6 +1,6 @@
 import logging
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from app.cache.book_cache import book_cache
@@ -57,6 +57,31 @@ def list_books(
     limit: int = 100,
 ) -> list[Book]:
     statement = select(Book).order_by(Book.id).offset(skip).limit(limit)
+
+    return list(db.scalars(statement).all())
+
+
+def search_books(
+    db: Session,
+    query: str,
+    skip: int = 0,
+    limit: int = 100,
+) -> list[Book]:
+    search_pattern = f"%{query.strip()}%"
+
+    statement = (
+        select(Book)
+        .where(
+            or_(
+                Book.title.ilike(search_pattern),
+                Book.author.ilike(search_pattern),
+                Book.isbn.ilike(search_pattern),
+            )
+        )
+        .order_by(Book.id)
+        .offset(skip)
+        .limit(limit)
+    )
 
     return list(db.scalars(statement).all())
 
