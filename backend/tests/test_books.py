@@ -318,3 +318,51 @@ def test_delete_missing_book(
 
     assert response.status_code == 404
     assert response.json()["detail"] == ("Book not found.")
+
+
+def test_list_books_pagination(client: TestClient):
+    headers = create_admin_headers(client)
+
+    books_data = [
+        {
+            "title": "First Book",
+            "author": "First Author",
+            "isbn": "9780000000001",
+            "total_copies": 1,
+        },
+        {
+            "title": "Second Book",
+            "author": "Second Author",
+            "isbn": "9780000000002",
+            "total_copies": 1,
+        },
+        {
+            "title": "Third Book",
+            "author": "Third Author",
+            "isbn": "9780000000003",
+            "total_copies": 1,
+        },
+    ]
+
+    for book_data in books_data:
+        response = create_book(
+            client,
+            headers,
+            book_data,
+        )
+        assert response.status_code == 201
+
+    response = client.get(
+        "/api/v1/books",
+        params={
+            "skip": 1,
+            "limit": 1,
+        },
+        headers=headers,
+    )
+
+    body = response.json()
+
+    assert response.status_code == 200
+    assert len(body) == 1
+    assert body[0]["isbn"] == books_data[1]["isbn"]
