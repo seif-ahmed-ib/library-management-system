@@ -1,5 +1,10 @@
 from fastapi.testclient import TestClient
 
+from datetime import datetime, timedelta, timezone
+
+import jwt
+
+from app.core.config import settings
 
 USER_DATA = {
     "full_name": "Seif Ahmed",
@@ -124,3 +129,23 @@ def test_me_with_invalid_token(client: TestClient):
 
     assert response.status_code == 401
     assert response.json() == {"detail": "Could not validate credentials."}
+
+def test_me_with_expired_token(client: TestClient):
+    expired_token = jwt.encode(
+        {
+            "sub": "1",
+            "exp": datetime.now(timezone.utc) - timedelta(minutes=1),
+        },
+        settings.secret_key,
+        algorithm=settings.algorithm,
+    )
+
+    response = client.get(
+        "/api/v1/auth/me",
+        headers={"Authorization": f"Bearer {expired_token}"},
+    )
+
+    assert response.status_code == 401
+    assert response.json() == {
+        "detail": "Could not validate credentials."
+    }
