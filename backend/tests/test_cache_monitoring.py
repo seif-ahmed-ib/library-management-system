@@ -218,3 +218,60 @@ def test_frontend_page_is_available(client: TestClient) -> None:
     assert script_response.status_code == 200
     assert "text/css" in stylesheet_response.headers["content-type"]
     assert "javascript" in script_response.headers["content-type"]
+
+
+def test_return_invalidates_cached_availability(
+    client: TestClient,
+    fake_redis: FakeRedis,
+) -> None:
+    admin_headers = create_admin_headers(client)
+    member_headers = create_member_headers(client)
+    book = create_book(
+        client,
+        admin_headers,
+        {
+            **BOOK_DATA,
+            "title": "Return Cache Test",
+            "isbn": "9780134685991",
+            "total_copies": 2,
+        },
+    ).json()
+    item_url = f"/api/v1/books/{book['id']}"
+
+    borrow_response = client.post(
+        "/api/v1/borrows",
+        headers=member_headers,
+        json={"book_id": book["id"]},
+    )
+
+    assert borrow_response.status_code == 201
+    assert (
+        client.get(
+            item_url,
+            headers=member_headers,
+        ).headers["X-Cache"]
+        == "MISS"
+    )
+
+    cached_response = client.get(
+        item_url,
+        headers=member_headers,
+    )
+
+    assert cached_response.headers["X-Cache"] == "HIT"
+    assert cached_response.json()["available_copies"] == 1
+
+    return_response = client.post(
+        f"/api/v1/borrows/{borrow_response.json()['id']}/return",
+        headers=member_headers,
+    )
+
+    refreshed_response = client.get(
+        item_url,
+        headers=member_headers,
+    )
+
+    assert return_response.status_code == 200
+    assert refreshed_response.status_code == 200
+    assert refreshed_response.headers["X-Cache"] == "MISS"
+    assert refreshed_response.json()["available_copies"] == 2
