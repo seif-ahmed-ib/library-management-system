@@ -37,6 +37,9 @@ from app.services.book_service import (
     list_books as list_books_service,
 )
 from app.services.book_service import (
+    search_books as search_books_service,
+)
+from app.services.book_service import (
     update_book as update_book_service,
 )
 
@@ -79,6 +82,28 @@ def read_books(
         [BookRead.model_validate(book).model_dump(mode="json") for book in books],
     )
     return books
+
+
+@router.get(
+    "/search",
+    response_model=list[BookRead],
+)
+def search_books(
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[
+        User,
+        Depends(get_current_active_user),
+    ],
+    query: str = Query(min_length=1, max_length=200),
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=100, ge=1, le=100),
+) -> list[Book]:
+    return search_books_service(
+        db,
+        query=query,
+        skip=skip,
+        limit=limit,
+    )
 
 
 @router.get(
