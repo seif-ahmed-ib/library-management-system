@@ -1,9 +1,9 @@
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 
+from app.models.book import Book
 from app.models.user import User, UserRole
 from tests.conftest import TestingSessionLocal
-
 
 ADMIN_DATA = {
     "full_name": "Library Admin",
@@ -439,3 +439,91 @@ def test_search_books_returns_empty_list_when_no_match(
 
     assert response.status_code == 200
     assert response.json() == []
+
+    
+def test_list_available_books(
+    client: TestClient,
+):
+    headers = create_admin_headers(client)
+
+    create_book(client, headers)
+
+    unavailable_book = create_book(
+        client,
+        headers,
+        {
+            "title": "Unavailable Book",
+            "author": "Test Author",
+            "isbn": "9780000000010",
+            "total_copies": 1,
+        },
+    ).json()
+
+    with TestingSessionLocal() as db:
+        book = db.get(Book, unavailable_book["id"])
+
+        assert book is not None
+
+        book.available_copies = 0
+        db.commit()
+
+    response = client.get(
+        "/api/v1/books/available",
+        headers=headers,
+    )
+
+    body = response.json()
+
+    assert response.status_code == 200
+    assert len(body) == 1
+    assert body[0]["isbn"] == BOOK_DATA["isbn"]
+    assert body[0]["available_copies"] > 0
+
+
+def test_list_available_books_without_token(
+    client: TestClient,
+):
+    response = client.get(
+        "/api/v1/books/available",
+    )
+
+    assert response.status_code == 401
+
+
+def test_list_available_books_pagination(
+    client: TestClient,
+):
+    headers = create_admin_headers(client)
+
+    books_data = [
+        BOOK_DATA,
+        {
+            "title": "Second Available Book",
+            "author": "Second Author",
+            "isbn": "9780000000011",
+            "total_copies": 2,
+        },
+    ]
+
+    for book_data in books_data:
+        response = create_book(
+            client,
+            headers,
+            book_data,
+        )
+        assert response.status_code == 201
+
+    response = client.get(
+        "/api/v1/books/available",
+        params={
+            "skip": 1,
+            "limit": 1,
+        },
+        headers=headers,
+    )
+
+    body = response.json()
+
+    assert response.status_code == 200
+    assert len(body) == 1
+    assert body[0]["isbn"] == books_data[1]["isbn"]

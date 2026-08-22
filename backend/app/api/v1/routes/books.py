@@ -34,6 +34,9 @@ from app.services.book_service import (
     get_book as get_book_service,
 )
 from app.services.book_service import (
+    list_available_books as list_available_books_service,
+)
+from app.services.book_service import (
     list_books as list_books_service,
 )
 from app.services.book_service import (
@@ -79,9 +82,32 @@ def read_books(
     book_cache.set_list(
         skip,
         limit,
-        [BookRead.model_validate(book).model_dump(mode="json") for book in books],
+        [
+            BookRead.model_validate(book).model_dump(mode="json")
+            for book in books
+        ],
     )
     return books
+
+
+@router.get(
+    "/available",
+    response_model=list[BookRead],
+)
+def read_available_books(
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[
+        User,
+        Depends(get_current_active_user),
+    ],
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=100, ge=1, le=100),
+) -> list[Book]:
+    return list_available_books_service(
+        db,
+        skip=skip,
+        limit=limit,
+    )
 
 
 @router.get(
