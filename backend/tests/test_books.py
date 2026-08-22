@@ -366,3 +366,76 @@ def test_list_books_pagination(client: TestClient):
     assert response.status_code == 200
     assert len(body) == 1
     assert body[0]["isbn"] == books_data[1]["isbn"]
+
+
+def test_search_books_by_title_case_insensitive(
+    client: TestClient,
+):
+    headers = create_admin_headers(client)
+    create_book(client, headers)
+
+    response = client.get(
+        "/api/v1/books/search",
+        params={"query": "clean"},
+        headers=headers,
+    )
+
+    body = response.json()
+
+    assert response.status_code == 200
+    assert len(body) == 1
+    assert body[0]["title"] == BOOK_DATA["title"]
+
+
+def test_search_books_by_author(
+    client: TestClient,
+):
+    headers = create_admin_headers(client)
+    create_book(client, headers)
+
+    response = client.get(
+        "/api/v1/books/search",
+        params={"query": "robert"},
+        headers=headers,
+    )
+
+    body = response.json()
+
+    assert response.status_code == 200
+    assert len(body) == 1
+    assert body[0]["author"] == BOOK_DATA["author"]
+
+
+def test_search_books_by_isbn(
+    client: TestClient,
+):
+    headers = create_admin_headers(client)
+    create_book(client, headers)
+
+    response = client.get(
+        "/api/v1/books/search",
+        params={"query": BOOK_DATA["isbn"]},
+        headers=headers,
+    )
+
+    body = response.json()
+
+    assert response.status_code == 200
+    assert len(body) == 1
+    assert body[0]["isbn"] == BOOK_DATA["isbn"]
+
+
+def test_search_books_returns_empty_list_when_no_match(
+    client: TestClient,
+):
+    headers = create_admin_headers(client)
+    create_book(client, headers)
+
+    response = client.get(
+        "/api/v1/books/search",
+        params={"query": "nonexistent book"},
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    assert response.json() == []
