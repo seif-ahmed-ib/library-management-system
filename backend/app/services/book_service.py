@@ -61,6 +61,22 @@ def list_books(
     return list(db.scalars(statement).all())
 
 
+def list_available_books(
+    db: Session,
+    skip: int = 0,
+    limit: int = 100,
+) -> list[Book]:
+    statement = (
+        select(Book)
+        .where(Book.available_copies > 0)
+        .order_by(Book.id)
+        .offset(skip)
+        .limit(limit)
+    )
+
+    return list(db.scalars(statement).all())
+
+
 def search_books(
     db: Session,
     query: str,
